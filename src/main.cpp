@@ -223,22 +223,22 @@ void process_pad_cmd()
 
 	switch (sw_status)
 	{
-	case START &SELECT & L2 &R2:
+	case START &SELECT &L2 &R2:
 		detected_action = ACTION_SHORT_RESET;
 		ready_to_process = true;
 		break;
 
-	case SELECT &L2 & R2 &X:
+	case SELECT &L2 &R2 &X:
 		detected_action = ACTION_LONG_RESET;
 		ready_to_process = true;
 		break;
 
-	case SELECT &L2 & R2 &R1:
+	case SELECT &L2 &R2 &R1:
 		detected_action = ACTION_DOOR;
 		ready_to_process = true;
 		break;
 
-	case SELECT &L2 & R2 &TRIANGLE:
+	case SELECT &L2 &R2 &SQUARE:
 		detected_action = ACTION_MENU_RESET;
 		ready_to_process = true;
 		break;
