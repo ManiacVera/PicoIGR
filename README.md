@@ -11,3 +11,6 @@ Long reset:     L2 + R2 + SELECT + X.
 Reset lid open: L2 + R2 + SELECT + SQUARE. 
 
 Open lid:       L2 + R2 + SELECT + R1. 
+
+
+The diagram contains an LED, this is an indicator to know when the lid is open, IT IS OPTIONAL.
