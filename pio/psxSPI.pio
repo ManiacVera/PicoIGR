@@ -1,0 +1,156 @@
+;	Author:	Daniele Giuliani
+;	Interfaces with the modified SPI protocol used by
+;	PSX to communicate with controller/memory cards
+
+.define PUBLIC PIN_LED 2
+.define PUBLIC PIN_DAT 9
+.define PUBLIC PIN_CMD 10
+.define PUBLIC PIN_SEL 11
+.define PUBLIC PIN_CLK 12 //4
+.define PUBLIC PIN_RESET 13 //6
+.define PUBLIC PIN_DOOR 15
+
+.program cmd_reader
+; Input pins mapping:
+;	0 - CMD
+; Program description:
+;	Samples CMD line during rising clock edges,
+;	waits for SEL low signal before starting execution
+sel_high:
+wait 0 gpio PIN_SEL		; wait for SEL to go low
+set x, 7				; set the bit counter
+.wrap_target
+wait 0 gpio PIN_CLK		; wait for clock to fall
+wait 1 gpio PIN_CLK		; wait for rising clock edge
+in pins 1				; sample 1 bit from CMD line
+.wrap
+
+.program dat_reader
+; Input pins mapping:
+;	0 - DAT
+; Program description:
+;	Samples DAT line during rising clock edges,
+;	waits for SEL pin to be low before starting execution.
+;	Can be used for sniffing DAT line used by other hardware.
+sel_high:
+wait 0 gpio PIN_SEL	; wait for SEL to go low
+.wrap_target
+wait 0 gpio PIN_CLK	; wait for clock to fall
+wait 1 gpio PIN_CLK	; wait for rising clock edge
+in pins 1		    ; sample 1 bit form DAT line
+.wrap
+
+.program cmd_writer
+.side_set 1 pindirs
+
+; Pin usage:
+;   - Pin 0: CMD line (open-drain output using pin direction)
+;   - CLK: external clock input
+;   - SEL: chip select / enable signal (active low)
+
+; Description:
+;   - Waits for SEL to go low before starting transmission.
+;   - Outputs 8 bits on the CMD line, synchronized to the falling edge of CLK.
+;   - Uses open-drain signaling via pin direction:
+;       * 0 in pindirs → output low  (represents logical 0)
+;       * 1 in pindirs → input (Hi-Z) (represents logical 1)
+
+; Initialize CMD as Hi-Z (input) — not driving the line
+set pindirs, 1         side 0
+wait 0 gpio PIN_SEL    side 0       ; Wait for SEL to go low
+
+.wrap_target
+pull                   side 0       ; Pull 8-bit data from TX FIFO
+set x, 7               side 0       ; Set bit counter to 7 (8 bits total)
+
+sendbit:
+wait 1 gpio PIN_CLK    side 0       ; Wait for clock to go high
+wait 0 gpio PIN_CLK    side 0       ; Wait for falling edge (transmit bit here)
+out pindirs 1          side 0       ; Output bit via pin direction: 0 = LOW, 1 = Hi-Z
+jmp x-- sendbit        side 0       ; Loop until 8 bits are sent
+.wrap
+
+% c-sdk {
+#define SLOW_CLKDIV 50	// 125MHz divided down to 2.5 MHz - we need this so we don't count clocks not meant for us on systems like the PS2
+
+static inline void cmd_reader_program_init(PIO pio, uint sm, uint offset) {
+	pio_sm_config c = cmd_reader_program_get_default_config(offset);
+
+	/* Pin Configuration */
+	sm_config_set_in_pins(&c, PIN_CMD);
+
+	pio_sm_set_consecutive_pindirs(pio, sm, PIN_CMD, 1, false);
+	pio_sm_set_consecutive_pindirs(pio, sm, PIN_SEL, 1, false);
+	pio_sm_set_consecutive_pindirs(pio, sm, PIN_CLK, 1, false);
+
+	/* Fifo Configuration */
+	sm_config_set_in_shift(&c, true, true, 8);		// shift ISR to right, autopush every 8 bits
+	sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);	// join RX FIFO
+
+	/* Clock configuration */
+    sm_config_set_clkdiv_int_frac(&c, SLOW_CLKDIV, 0x00);
+
+	/* Initialize SM */
+	pio_sm_init(pio, sm, offset, &c);
+}
+
+static inline void dat_reader_program_init(PIO pio, uint sm, uint offset) {
+	pio_sm_config c = dat_reader_program_get_default_config(offset);
+
+	/* Pin Configuration */
+	sm_config_set_in_pins(&c, PIN_DAT);
+
+	pio_sm_set_consecutive_pindirs(pio, sm, PIN_DAT, 1, false);
+	pio_sm_set_consecutive_pindirs(pio, sm, PIN_SEL, 1, false);
+	pio_sm_set_consecutive_pindirs(pio, sm, PIN_CLK, 1, false);
+
+	/* Fifo Configuration */
+	sm_config_set_in_shift(&c, true, true, 8);		// shift ISR to right, autopush every 8 bits
+	sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);	// join RX FIFO
+
+    /* Clock configuration */
+    sm_config_set_clkdiv_int_frac(&c, SLOW_CLKDIV, 0x00);
+
+	/* Initialize SM */
+	pio_sm_init(pio, sm, offset, &c);
+}
+
+// Initialize cmd_writer PIO state machine
+static inline void cmd_writer_program_init(PIO pio, uint sm, uint offset) {
+    pio_sm_config c = cmd_writer_program_get_default_config(offset);
+
+    // Configure CMD pin as output with pindirs control (open-drain style)
+    sm_config_set_out_pins(&c, PIN_CMD, 1);
+    sm_config_set_set_pins(&c, PIN_CMD, 1);
+
+    // Initialize CMD pin to input (Hi-Z)
+    pio_sm_set_pins_with_mask(pio, sm, 0, 1 << PIN_CMD);
+    pio_sm_set_consecutive_pindirs(pio, sm, PIN_CMD, 1, false);
+
+	gpio_set_function(PIN_CMD, GPIO_FUNC_PIO0);
+    //gpio_set_function(PIN_CMD, GPIO_FUNC_SIO);
+    //gpio_set_dir(PIN_CMD, GPIO_OUT);
+
+    // Release CLK and SEL pins (if needed)
+    pio_sm_set_consecutive_pindirs(pio, sm, PIN_CLK, 1, false);
+    pio_sm_set_consecutive_pindirs(pio, sm, PIN_SEL, 1, false);
+
+    // FIFO configuration: autopull every 8 bits, shift right
+    sm_config_set_out_shift(&c, true, true, 8);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+    // Clock divider
+    sm_config_set_clkdiv(&c, SLOW_CLKDIV);
+
+    // Initialize the state machine
+    pio_sm_init(pio, sm, offset, &c);
+}
+
+static inline uint8_t read_byte_blocking(PIO pio, uint sm) {
+	return (uint8_t) (pio_sm_get_blocking(pio, sm) >> 24);
+}
+
+static inline void write_byte_blocking(PIO pio, uint sm, uint32_t byte) {
+	pio_sm_put_blocking(pio, sm, ~byte & 0xFF); // invert bits (0 become 1 setting the output to low)
+}
+%}
