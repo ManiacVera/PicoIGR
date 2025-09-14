@@ -13,7 +13,7 @@
 #define PAD_TOP 0x01
 #define PAD_READ 0x42
 #define SECONDS 3
-#define COMBINATION_CANCEL TRIANGLE
+#define COMBINATION_CANCEL R1
 
 uint smCmdReader;
 uint smDatReader;
