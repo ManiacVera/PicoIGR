@@ -35,6 +35,7 @@ enum Action
 	ACTION_SHORT_RESET,
 	ACTION_LONG_RESET,
 	ACTION_MENU_RESET,
+	ACTION_SWAP_DISC,
 	ACTION_DOOR
 };
 
@@ -115,6 +116,19 @@ void menu_reset()
 	sleep_ms(2000);
 	gpio_put(PIN_RESET, 1);
 	restar_variables_time();
+}
+
+void swap_disc()
+{
+	if (door_state == DOOR_OPEN)
+	{
+		close_door(true);
+	}
+	else
+	{
+		open_door(true);
+		close_door(true);
+	}
 }
 
 void simulate_door()
@@ -240,6 +254,11 @@ void process_pad_cmd()
 
 	case SELECT &L2 &R2 &SQUARE:
 		detected_action = ACTION_MENU_RESET;
+		ready_to_process = true;
+		break;
+
+	case SELECT &L2 &R2 &L1:
+		detected_action = ACTION_SWAP_DISC;
 		ready_to_process = true;
 		break;
 
@@ -394,6 +413,8 @@ _Noreturn int simulate_igr()
 			case ACTION_DOOR:
 				simulate_door();
 				break;
+			case ACTION_SWAP_DISC:
+				swap_disc();
 			default:
 				break;
 			}
