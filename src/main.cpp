@@ -86,6 +86,7 @@ void open_door(bool wait)
 	// printf("OPENING\n");
 	door_state = DOOR_OPEN;
 	gpio_set_dir(PIN_DOOR, GPIO_IN);
+	gpio_pull_up(PIN_DOOR);
 
 	if (wait)
 		sleep_ms(700);
