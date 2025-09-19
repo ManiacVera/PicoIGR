@@ -10,7 +10,9 @@ Long reset:     L2 + R2 + SELECT + X.
 
 Reset lid open: L2 + R2 + SELECT + SQUARE. 
 
-Open lid:       L2 + R2 + SELECT + R1. 
+Open/Close lid: L2 + R2 + SELECT + R1. 
+
+Swap disc:      L2 + R2 + SELECT + L1. 
 
 
 The diagram contains an LED, this is an indicator to know when the lid is open, IT IS OPTIONAL.
