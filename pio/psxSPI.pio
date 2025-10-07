@@ -6,11 +6,11 @@
 .define PUBLIC PIN_DAT 9
 .define PUBLIC PIN_CMD 10
 .define PUBLIC PIN_SEL 11
-//.define PUBLIC PIN_CLK 4		//ONLY FOR MY TESTS MANIAC VERA
-//.define PUBLIC PIN_RESET 6	//ONLY FOR MY TESTS MANIAC VERA
 .define PUBLIC PIN_CLK 12 
 .define PUBLIC PIN_RESET 13
 .define PUBLIC PIN_DOOR 15
+.define PUBLIC PIN_SDA   4
+.define PUBLIC PIN_SCL   5
 
 .program cmd_reader
 ; Input pins mapping:

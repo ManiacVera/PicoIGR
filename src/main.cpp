@@ -3,9 +3,12 @@
 #include "hardware/pio.h"
 #include "hardware/irq.h"
 #include "hardware/structs/iobank0.h"
+#include <hardware/i2c.h>
 #include "config.h"
 #include "pad.h"
 #include "psxSPI.pio.h"
+#include "picoigr_pinout.h"
+#include "si5351.h"
 #include <cstdio>
 #include <string.h>
 
@@ -371,9 +374,27 @@ void init_pio()
 #endif
 }
 
+void init_si5351()
+{
+	i2c_init(i2c0, 400*1000);
+    gpio_set_function(PIN_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_SDA);
+    gpio_pull_up(PIN_SCL);
+    
+    // Initialize the Si5351
+    if (si5351_Init(0))
+    {
+        si5351_SetupCLK1(53203425, SI5351_DRIVE_STRENGTH_2MA);
+        si5351_SetupCLK2(53693175, SI5351_DRIVE_STRENGTH_2MA);
+        si5351_EnableOutputs((1<<1) | (1<<2));
+    }
+}
+
 _Noreturn int simulate_igr()
 {
 	init_pio();
+	init_si5351();
 
 	/* Setup SEL interrupt on GPIO */
 	gpio_set_irq_enabled(PIN_SEL, GPIO_IRQ_EDGE_RISE, true);

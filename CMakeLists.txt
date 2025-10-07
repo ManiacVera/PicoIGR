@@ -93,7 +93,7 @@ target_compile_definitions(
 target_sources(
     ${PROJECT_NAME} PRIVATE
     src/main.cpp
-    
+    src/si5351.c
 )
 
 target_include_directories(
