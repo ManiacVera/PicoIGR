@@ -16,3 +16,5 @@ Swap disc:      L2 + R2 + SELECT + L1.
 
 
 The diagram contains an LED, this is an indicator to know when the lid is open, IT IS OPTIONAL.
+
+DFO is only supported on 100X PU-8 LATE and 55XX PU-18 models.
