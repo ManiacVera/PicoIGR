@@ -330,6 +330,7 @@ void init_pio()
     gpio_init(PIN_RESET);
     gpio_set_dir(PIN_RESET, GPIO_OUT);
     gpio_put(PIN_RESET, 1);
+	gpio_pull_up(PIN_RESET);
 
     gpio_init(PIN_DOOR);
     gpio_put(PIN_DOOR, 0);
