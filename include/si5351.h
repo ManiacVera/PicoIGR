@@ -52,9 +52,12 @@ extern "C" {
  * Si5351 module. This makes using them a little more convenient than CLK0 and CLK1.
  */
 bool si5351_Init(int32_t correction);
+void si5351_SetupCLK0(int32_t Fclk, si5351DriveStrength_t driveStrength);
 void si5351_SetupCLK1(int32_t Fclk, si5351DriveStrength_t driveStrength);
 void si5351_SetupCLK2(int32_t Fclk, si5351DriveStrength_t driveStrength);
+void si5351_SetCLK0Freq(int32_t Fclk);
 void si5351_EnableOutputs(uint8_t enabled);
+uint8_t si5351_GetCLKEnabled();
 
 /*
  * Advanced interface. Use it if you need:

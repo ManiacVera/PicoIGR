@@ -5,6 +5,7 @@ set(PIN_CLK   12)
 set(PIN_RESET 13)
 set(PIN_SDA   4)
 set(PIN_SCL   5)
+set(PIN_S0    6)
 
 set(PICO_BOARD pico)
 set(PICO_PLATFORM rp2040)

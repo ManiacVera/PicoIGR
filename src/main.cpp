@@ -13,6 +13,7 @@
 #include <string.h>
 
 // #define FORCE_PAD
+// #define SI5351_CLK0 1
 #define PAD_TOP 0x01
 #define PAD_READ 0x42
 #define SECONDS 3
@@ -95,30 +96,34 @@ void open_door(bool wait)
 		sleep_ms(700);
 }
 
+void do_reset(uint32_t sleep)
+{
+	gpio_set_dir(PIN_RESET, GPIO_OUT);
+    gpio_put(PIN_RESET, 0);
+    sleep_ms(sleep);
+    gpio_put(PIN_RESET, 1);
+	gpio_set_dir(PIN_RESET, GPIO_IN);
+	gpio_pull_up(PIN_RESET);	
+}
+
 void short_reset()
 {
 	close_door(false);
-	gpio_put(PIN_RESET, 0);
-	sleep_ms(700);
-	gpio_put(PIN_RESET, 1);
+	do_reset(100);
 	restar_variables_time();
 }
 
 void long_reset()
 {
 	close_door(false);
-	gpio_put(PIN_RESET, 0);
-	sleep_ms(2000);
-	gpio_put(PIN_RESET, 1);
+    do_reset(2000);
 	restar_variables_time();
 }
 
 void menu_reset()
 {
 	open_door(false);
-	gpio_put(PIN_RESET, 0);
-	sleep_ms(2000);
-	gpio_put(PIN_RESET, 1);
+	do_reset(2000);
 	restar_variables_time();
 }
 
@@ -144,6 +149,20 @@ void simulate_door()
 	else
 	{
 		open_door(true);
+	}
+}
+
+void __time_critical_func(change_frequency)()
+{
+	static int s0CurrentValue = -1;
+	if (si5351_GetCLKEnabled() & (1<<0))
+	{
+		bool s0Value = gpio_get(PIN_S0);
+		if (s0CurrentValue == -1 || s0Value != (bool)s0CurrentValue)
+		{
+			s0CurrentValue = s0Value ? 1 : 0;
+			si5351_SetCLK0Freq(s0Value ? 53203425 : 53693175);
+		}
 	}
 }
 
@@ -328,9 +347,9 @@ void init_pio()
 {
     // Inicializa pines usados como salidas y entradas
     gpio_init(PIN_RESET);
-    gpio_set_dir(PIN_RESET, GPIO_OUT);
-    gpio_put(PIN_RESET, 1);
-	gpio_pull_up(PIN_RESET);
+    // gpio_set_dir(PIN_RESET, GPIO_OUT);
+    // gpio_put(PIN_RESET, 1);
+	// gpio_pull_up(PIN_RESET);
 
     gpio_init(PIN_DOOR);
     gpio_put(PIN_DOOR, 0);
@@ -339,6 +358,10 @@ void init_pio()
     gpio_init(PIN_LED);
     gpio_put(PIN_LED, 0);
     gpio_set_dir(PIN_LED, GPIO_OUT);
+
+	gpio_init(PIN_S0);
+    gpio_set_dir(PIN_S0, GPIO_IN);
+	gpio_pull_up(PIN_S0);
 
     gpio_set_dir(PIN_DAT, false);
     gpio_set_dir(PIN_CMD, false);
@@ -383,13 +406,21 @@ void init_si5351()
     gpio_pull_up(PIN_SDA);
     gpio_pull_up(PIN_SCL);
     
-    // Initialize the Si5351
-    if (si5351_Init(0))
-    {
-        si5351_SetupCLK1(53203425, SI5351_DRIVE_STRENGTH_2MA);
-        si5351_SetupCLK2(53693175, SI5351_DRIVE_STRENGTH_2MA);
-        si5351_EnableOutputs((1<<1) | (1<<2));
-    }
+	// Initialize the Si5351
+	#ifdef SI5351_CLK0
+		if (si5351_Init(0))
+		{
+			si5351_SetupCLK0(53203425, SI5351_DRIVE_STRENGTH_2MA);
+			si5351_EnableOutputs((1<<0)); 
+		}
+	#else
+		if (si5351_Init(0))
+		{
+			si5351_SetupCLK1(53203425, SI5351_DRIVE_STRENGTH_2MA);
+			si5351_SetupCLK2(53693175, SI5351_DRIVE_STRENGTH_2MA);
+			si5351_EnableOutputs((1<<1) | (1<<2));
+		}
+	#endif 
 }
 
 _Noreturn int simulate_igr()
@@ -414,9 +445,14 @@ _Noreturn int simulate_igr()
 	cancel_start_time = get_absolute_time();
 	multicore_launch_core1(igr_thread);
 	// printf("  done\n");
-
+	
 	while (true)
 	{
+
+		#ifdef SI5351_CLK0
+			change_frequency();
+		#endif
+
 		if (ready_to_process)
 		{
 			// printf("ready_to_process\n");

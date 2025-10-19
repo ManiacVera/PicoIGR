@@ -7,6 +7,8 @@
 #define SI5351_ADDRESS 0x60
 #define I2C_HANDLE i2c0
 
+static uint8_t si5351_CLKEnabled = 0;
+
 // Private procedures.
 void si5351_writeBulk(uint8_t baseaddr, int32_t P1, int32_t P2, int32_t P3, uint8_t divBy4, si5351RDiv_t rdiv);
 int si5351_write(uint8_t reg, uint8_t value);
@@ -97,6 +99,10 @@ typedef enum {
 } si5351CrystalLoad_t;
 
 int32_t si5351Correction;
+
+uint8_t __time_critical_func(si5351_GetCLKEnabled)() {
+    return si5351_CLKEnabled;
+}
 
 /*
  * Initializes Si5351. Call this function before doing anything else.
@@ -334,6 +340,20 @@ void __time_critical_func(si5351_CalcIQ)(int32_t Fclk, si5351PLLConfig_t* pll_co
     pll_conf->denom = Fxtal / 24; // denom can't exceed 0xFFFFF
 }
 
+void si5351_SetCLK0Freq(int32_t Fclk) {
+    si5351_SetupCLK0(Fclk, SI5351_DRIVE_STRENGTH_2MA);
+}
+
+void __time_critical_func(si5351_SetupCLK0)(int32_t Fclk, si5351DriveStrength_t driveStrength) {
+// Setup CLK0 for given frequency and drive strength. Use PLLA.
+	si5351PLLConfig_t pll_conf;
+	si5351OutputConfig_t out_conf;
+
+	si5351_Calc(Fclk, &pll_conf, &out_conf);
+	si5351_SetupPLL(SI5351_PLL_A, &pll_conf);
+	si5351_SetupOutput(1, SI5351_PLL_A, driveStrength, &out_conf, 0);
+}
+
 // Setup CLK1 for given frequency and drive strength. Use PLLA.
 void __time_critical_func(si5351_SetupCLK1)(int32_t Fclk, si5351DriveStrength_t driveStrength) {
 	si5351PLLConfig_t pll_conf;
@@ -359,6 +379,7 @@ void __time_critical_func(si5351_SetupCLK2)(int32_t Fclk, si5351DriveStrength_t 
 // si5351_EnableOutputs(1 << 0) enables CLK0 and disables CLK1 and CLK2
 // si5351_EnableOutputs((1 << 2) | (1 << 0)) enables CLK0 and CLK2 and disables CLK1
 void __time_critical_func(si5351_EnableOutputs)(uint8_t enabled) {
+    si5351_CLKEnabled = enabled;
     si5351_write(SI5351_REGISTER_3_OUTPUT_ENABLE_CONTROL, ~enabled);
 }
 
